@@ -1,0 +1,14 @@
+fraud_detection:
+  target: dev
+  outputs:
+    dev:
+      type: clickhouse
+      schema: fraud_detection
+      host: localhost
+      port: 9000
+      user: default
+      password: "{{ env_var('CLICKHOUSE_PASSWORD', '') }}"
+      database: fraud_detection
+      secure: false
+      verify: false
+

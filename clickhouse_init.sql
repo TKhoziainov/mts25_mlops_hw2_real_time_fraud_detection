@@ -63,3 +63,33 @@ SELECT
     toFloat64OrNull(JSONExtractString(JSONExtractRaw(message, 'data'), 'merchant_lon')) as merchant_lon
 FROM transactions_kafka;
 
+CREATE TABLE IF NOT EXISTS scores_kafka
+(
+    message String
+)
+ENGINE = Kafka()
+SETTINGS
+    kafka_broker_list = 'kafka:9092',
+    kafka_topic_list = 'scores',
+    kafka_group_name = 'clickhouse_scores_consumer_group',
+    kafka_format = 'JSONAsString',
+    kafka_num_consumers = 1,
+    kafka_skip_broken_messages = 1;
+
+CREATE TABLE IF NOT EXISTS scores
+(
+    transaction_id String,
+    score Float64,
+    fraud_flag UInt8,
+    created_at DateTime DEFAULT now()
+)
+ENGINE = ReplacingMergeTree(created_at)
+ORDER BY transaction_id;
+
+CREATE MATERIALIZED VIEW IF NOT EXISTS scores_mv TO scores AS
+SELECT
+    JSONExtractString(message, 'transaction_id') as transaction_id,
+    toFloat64OrNull(JSONExtractString(message, 'score')) as score,
+    toUInt8OrNull(JSONExtractString(message, 'fraud_flag')) as fraud_flag
+FROM scores_kafka;
+

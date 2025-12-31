@@ -1,0 +1,55 @@
+version: 2
+
+models:
+  - name: stg_transactions
+    description: Staging layer for transactions with cleaned and normalized data
+    columns:
+      - name: transaction_id
+        description: Unique transaction identifier
+        tests:
+          - not_null
+          - unique
+      - name: transaction_time
+        description: Transaction timestamp
+        tests:
+          - not_null
+      - name: merchant_id
+        description: Merchant identifier
+        tests:
+          - not_null
+      - name: category_id
+        description: Transaction category ID
+        tests:
+          - not_null
+      - name: amount
+        description: Transaction amount in dollars
+        tests:
+          - not_null
+          - dbt_expectations.expect_column_values_to_be_between:
+              arguments:
+                min_value: 0
+                max_value: 1000000
+      - name: is_fraud
+        description: Fraud indicator (0 = normal, 1 = fraud)
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [0, 1]
+      - name: amount_bucket
+        description: Amount segmentation (SMALL, MEDIUM, LARGE, VERY_LARGE)
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['SMALL', 'MEDIUM', 'LARGE', 'VERY_LARGE']
+      - name: us_state
+        description: US state code
+        tests:
+          - not_null
+      - name: gender
+        description: Customer gender
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['M', 'F']
+

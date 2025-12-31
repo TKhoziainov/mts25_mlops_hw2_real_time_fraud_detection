@@ -23,10 +23,14 @@ def load_csv_to_kafka(csv_path, kafka_brokers, topic, batch_size=100):
         print(f"Загружено строк: {len(df)}")
         
         print(f"Подключение к Kafka: {kafka_brokers}")
+        brokers_list = kafka_brokers.split(',') if isinstance(kafka_brokers, str) else kafka_brokers
         producer = KafkaProducer(
-            bootstrap_servers=kafka_brokers,
+            bootstrap_servers=brokers_list,
             value_serializer=lambda v: json.dumps(v).encode("utf-8"),
-            security_protocol="PLAINTEXT"
+            security_protocol="PLAINTEXT",
+            api_version=(0, 10, 1),
+            request_timeout_ms=30000,
+            retries=3
         )
         
         df['transaction_id'] = [str(uuid.uuid4()) for _ in range(len(df))]

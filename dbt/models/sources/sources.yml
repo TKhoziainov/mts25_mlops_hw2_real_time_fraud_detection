@@ -1,0 +1,57 @@
+version: 2
+
+sources:
+  - name: transactions_db
+    description: Source database with raw transaction data
+    database: fraud_detection
+    schema: fraud_detection
+    tables:
+      - name: transactions
+        description: Raw transaction data with fraud indicators
+        columns:
+          - name: transaction_id
+            description: Unique transaction identifier
+            tests:
+              - unique
+          - name: transaction_time
+            description: Timestamp of the transaction
+          - name: merch
+            description: Merchant identifier
+          - name: cat_id
+            description: Transaction category ID
+          - name: amount
+            description: Transaction amount
+            tests:
+              - dbt_expectations.expect_column_values_to_be_of_type:
+                  arguments:
+                    column_type: float64
+          - name: name_1
+            description: Customer first name
+          - name: name_2
+            description: Customer last name
+          - name: gender
+            description: Customer gender (M/F)
+          - name: us_state
+            description: US state code
+          - name: lat
+            description: Customer latitude
+          - name: lon
+            description: Customer longitude
+          - name: merchant_lat
+            description: Merchant latitude
+          - name: merchant_lon
+            description: Merchant longitude
+          - name: target
+            description: Fraud indicator (0 = normal, 1 = fraud)
+      - name: scores
+        description: Fraud detection scores from ML model
+        columns:
+          - name: transaction_id
+            description: Unique transaction identifier
+            tests:
+              - unique
+          - name: fraud_flag
+            description: Fraud flag from ML model (0 = normal, 1 = fraud)
+          - name: score
+            description: Fraud detection score
+

@@ -1,0 +1,166 @@
+version: 2
+
+models:
+  - name: mart_daily_state_metrics
+    description: Daily aggregated metrics by US state including transaction counts, amounts, and large transaction percentages
+    columns:
+      - name: transaction_date
+        description: Date of the transaction
+        tests:
+          - not_null
+      - name: us_state
+        description: US state code
+        tests:
+          - not_null
+      - name: transaction_count
+        description: Total number of transactions for the date and state
+        tests:
+          - not_null
+          - dbt_expectations.expect_column_values_to_be_between:
+              arguments:
+                min_value: 0
+      - name: total_amount
+        description: Total transaction amount
+      - name: avg_amount
+        description: Average transaction amount
+      - name: p95_amount
+        description: 95th percentile of transaction amounts
+      - name: large_transaction_pct
+        description: Percentage of large transactions
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns:
+            - transaction_date
+            - us_state
+
+  - name: mart_fraud_by_category
+    description: Fraud analysis by transaction category showing fraud rates and amounts
+    columns:
+      - name: category_id
+        description: Transaction category identifier
+        tests:
+          - not_null
+          - unique
+      - name: total_transactions
+        description: Total number of transactions in this category
+        tests:
+          - not_null
+      - name: fraud_count
+        description: Number of fraudulent transactions
+        tests:
+          - not_null
+      - name: fraud_rate
+        description: Fraud rate as percentage
+        tests:
+          - not_null
+          - dbt_expectations.expect_column_values_to_be_between:
+              arguments:
+                min_value: 0
+                max_value: 100
+
+  - name: mart_fraud_by_state
+    description: Geographic fraud distribution across US states
+    columns:
+      - name: us_state
+        description: US state code
+        tests:
+          - not_null
+          - unique
+      - name: fraud_rate
+        description: Fraud rate as percentage
+        tests:
+          - not_null
+          - dbt_expectations.expect_column_values_to_be_between:
+              arguments:
+                min_value: 0
+                max_value: 100
+      - name: unique_customers
+        description: Number of unique customers in the state
+        tests:
+          - not_null
+      - name: unique_merchants
+        description: Number of unique merchants in the state
+        tests:
+          - not_null
+
+  - name: mart_customer_risk_profile
+    description: Customer risk segmentation based on fraud history and transaction patterns
+    columns:
+      - name: customer_id
+        description: Unique customer identifier
+        tests:
+          - not_null
+          - unique
+      - name: risk_level
+        description: Risk level classification (HIGH/MEDIUM/LOW)
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['HIGH', 'MEDIUM', 'LOW']
+      - name: fraud_rate
+        description: Customer fraud rate as percentage
+        tests:
+          - not_null
+          - dbt_expectations.expect_column_values_to_be_between:
+              arguments:
+                min_value: 0
+                max_value: 100
+
+  - name: mart_hourly_fraud_pattern
+    description: Temporal fraud patterns by hour and day of week
+    columns:
+      - name: transaction_hour
+        description: Hour of day (0-23)
+        tests:
+          - not_null
+          - dbt_expectations.expect_column_values_to_be_between:
+              arguments:
+                min_value: 0
+                max_value: 23
+      - name: day_of_week
+        description: Day of week (1=Monday, 7=Sunday)
+        tests:
+          - not_null
+          - dbt_expectations.expect_column_values_to_be_between:
+              arguments:
+                min_value: 1
+                max_value: 7
+      - name: fraud_rate
+        description: Fraud rate for this time window
+        tests:
+          - not_null
+          - dbt_expectations.expect_column_values_to_be_between:
+              arguments:
+                min_value: 0
+                max_value: 100
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns:
+            - transaction_hour
+            - day_of_week
+
+  - name: mart_merchant_analytics
+    description: Merchant analytics including revenue, fraud rates, and suspicious activity flags
+    columns:
+      - name: merchant_id
+        description: Unique merchant identifier
+        tests:
+          - not_null
+          - unique
+      - name: fraud_rate
+        description: Merchant fraud rate as percentage
+        tests:
+          - not_null
+          - dbt_expectations.expect_column_values_to_be_between:
+              arguments:
+                min_value: 0
+                max_value: 100
+      - name: is_suspicious
+        description: Flag indicating suspicious merchant activity (0 or 1)
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [0, 1]
+
