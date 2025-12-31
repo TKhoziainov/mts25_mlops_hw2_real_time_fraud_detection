@@ -148,6 +148,67 @@ services:
       kafka-setup:
         condition: service_completed_successfully
 
+  clickhouse:
+    image: clickhouse/clickhouse-server:latest
+    networks:
+      - ml-scorer
+    ports:
+      - "8123:8123"
+      - "9000:9000"
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+    env_file:
+      - .env
+    environment:
+      CLICKHOUSE_DB: ${CLICKHOUSE_DB:-default}
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-default}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-}
+    depends_on:
+      - kafka
+      - kafka-setup
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "localhost:8123/ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  clickhouse-setup:
+    image: clickhouse/clickhouse-client:latest
+    networks:
+      - ml-scorer
+    env_file:
+      - .env
+    volumes:
+      - ./clickhouse_init.sql:/clickhouse_init.sql
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      kafka-setup:
+        condition: service_completed_successfully
+    restart: on-failure
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - |
+        CLICKHOUSE_USER=${CLICKHOUSE_USER:-default}
+        CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD:-}
+        echo "Ожидание готовности ClickHouse..."
+        if [ -n "$CLICKHOUSE_PASSWORD" ]; then
+          until clickhouse-client --host clickhouse --user="$CLICKHOUSE_USER" --password="$CLICKHOUSE_PASSWORD" --query "SELECT 1" 2>/dev/null; do
+            sleep 1
+          done
+          echo "Выполнение инициализации ClickHouse..."
+          clickhouse-client --host clickhouse --user="$CLICKHOUSE_USER" --password="$CLICKHOUSE_PASSWORD" --multiquery < /clickhouse_init.sql
+        else
+          until clickhouse-client --host clickhouse --user="$CLICKHOUSE_USER" --query "SELECT 1" 2>/dev/null; do
+            sleep 1
+          done
+          echo "Выполнение инициализации ClickHouse..."
+          clickhouse-client --host clickhouse --user="$CLICKHOUSE_USER" --multiquery < /clickhouse_init.sql
+        fi
+        echo "Инициализация ClickHouse завершена"
+
 networks:
   ml-scorer:
     name: ml-scorer
@@ -155,3 +216,4 @@ networks:
 
 volumes:
   postgres_data:
+  clickhouse_data:
