@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 # Set kafka configuration file
 KAFKA_BOOTSTRAP_SERVERS = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "kafka:9092")
 TRANSACTIONS_TOPIC = os.getenv("KAFKA_TRANSACTIONS_TOPIC", "transactions")
-SCORING_TOPIC = os.getenv("KAFKA_SCORING_TOPIC", "scoring")
+SCORING_TOPIC = os.getenv("KAFKA_SCORING_TOPIC", "scores")
 
 
 class ProcessingService:
@@ -67,11 +67,12 @@ class ProcessingService:
 
                 # Добавляем ID в результат
                 submission['transaction_id'] = transaction_id
+                
+                result_json = submission.to_json(orient='records')
 
-                # Отправка результата в топик scoring
                 self.producer.produce(
-                    'scoring',
-                    value=submission.to_json(orient='records')
+                    'scores',
+                    value=result_json
                 )
                 self.producer.flush()
             except Exception as e:

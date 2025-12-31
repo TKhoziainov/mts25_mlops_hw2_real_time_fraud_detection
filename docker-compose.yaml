@@ -52,7 +52,7 @@ services:
 
       echo 'Создание топиков...'
       kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic transactions --partitions 3 --replication-factor 1 --config retention.ms=604800000
-      kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic scoring --partitions 3 --replication-factor 1 --config retention.ms=604800000
+      kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic scores --partitions 3 --replication-factor 1 --config retention.ms=604800000
 
       echo 'Топики успешно созданы:'
       kafka-topics --bootstrap-server kafka:9092 --list
@@ -79,7 +79,7 @@ services:
     environment:
       KAFKA_BOOTSTRAP_SERVERS: "kafka:9092"
       KAFKA_TRANSACTIONS_TOPIC: "transactions"
-      KAFKA_SCORING_TOPIC: "scoring"
+      KAFKA_SCORING_TOPIC: "scores"
     depends_on:
       - kafka
       - kafka-setup
@@ -88,15 +88,70 @@ services:
     build: ./interface
     networks:
       - ml-scorer
+    env_file:
+      - .env
     environment:
-      KAFKA_BROKERS: "kafka:9092"  # Используем внутренний адрес Kafka
+      KAFKA_BROKERS: "kafka:9092"
       KAFKA_TOPIC: "transactions"
+      POSTGRES_HOST: "postgres"
+      POSTGRES_PORT: "5432"
+      RESULTS_LIMIT: 100
+      POSTGRES_DB: ${POSTGRES_DB:-fraud_detection}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
     depends_on:
       - kafka
+      - postgres
     ports:
       - "8501:8501"
+
+  postgres:
+    image: postgres:15-alpine
+    networks:
+      - ml-scorer
+    env_file:
+      - .env
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-fraud_detection}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init_db.sql:/docker-entrypoint-initdb.d/init_db.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  score_writer:
+    build: ./score_writer
+    networks:
+      - ml-scorer
+    env_file:
+      - .env
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: "kafka:9092"
+      KAFKA_SCORES_TOPIC: "scores"
+      POSTGRES_HOST: "postgres"
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: ${POSTGRES_DB:-fraud_detection}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      kafka-setup:
+        condition: service_completed_successfully
 
 networks:
   ml-scorer:
     name: ml-scorer
     driver: bridge
+
+volumes:
+  postgres_data:
